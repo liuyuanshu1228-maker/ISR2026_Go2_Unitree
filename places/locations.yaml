@@ -1,0 +1,20 @@
+# Named places on the SoIT map (research notes #4).
+#
+# Frame: map. Units: metres; yaw in radians (0 = facing +x).
+#   x, y, yaw : where the robot stops when we say go_to("<name>")
+#   radius    : the robot counts as "at" this place within this distance (inclusive)
+#
+# EXAMPLE VALUES until we have the real map (Thursday). They match
+# test_where_am_i.py, so update that test too when you change them.
+
+places:
+  lab:
+    x: 0.0
+    y: 0.0
+    yaw: 0.0
+    radius: 1.0
+  lift:
+    x: 5.0
+    y: 0.0
+    yaw: 0.0
+    radius: 1.0
