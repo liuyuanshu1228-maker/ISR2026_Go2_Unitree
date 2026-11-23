@@ -1,0 +1,25 @@
+# Removes the robot's own body and LiDAR cage from the 2D scan (research notes #1)
+# Owner: Yuanshu. Needs: apt install ros-humble-laser-filters
+#
+#   /scan_raw (from pointcloud_to_laserscan) -> this box filter -> /scan
+#
+# The box is in base_footprint (floor level, centre of the robot). Every scan
+# point INSIDE the box is dropped. Go2 body is about 70 x 31 cm
+# (footprint +-0.35 x +-0.16 in nav2_params.yaml), so the box is the body
+# plus 5 cm on every side. CHECK on Wednesday: stand next to the robot in
+# Foxglove, no scan points should remain on the body, and a box placed 10 cm
+# from the nose must still appear.
+scan_to_scan_filter_chain:
+  ros__parameters:
+    filter1:
+      name: body_box
+      type: laser_filters/LaserScanBoxFilter
+      params:
+        box_frame: base_footprint
+        min_x: -0.40
+        max_x: 0.40
+        min_y: -0.21
+        max_y: 0.21
+        min_z: -0.20
+        max_z: 1.20
+        invert: false # false = remove points inside the box

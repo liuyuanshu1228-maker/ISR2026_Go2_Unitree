@@ -1,0 +1,25 @@
+# Flattens the Mid-360 3D cloud into a 2D scan for slam_toolbox (research notes #1)
+# Owner: Yuanshu. Started by launch/mapping.launch.py.
+#
+# Topics (set by remaps in the launch file):
+#   in : /livox/lidar (sensor_msgs/PointCloud2, frame livox_frame)
+#   out: /scan_raw  -> body box filter (config/scan_filter.yaml) -> /scan
+#        (with body_filter:=false the node publishes /scan directly)
+#
+# Heights are measured from base_footprint, which must sit at floor level (z = 0).
+# The robot's own body and LiDAR cage are removed by the box filter, NOT by a
+# large range_min: range_min 0.4 would hide anything right in front of the nose.
+pointcloud_to_laserscan:
+  ros__parameters:
+    target_frame: base_footprint # stays level while the body tilts
+    transform_tolerance: 0.05
+    min_height: 0.10 # ignore anything lower than 10 cm (the floor)
+    max_height: 1.0 # ignore anything higher than 1 m (ceiling, tables)
+    angle_min: -3.14159 # look all the way around (from -180 degrees)
+    angle_max: 3.14159 # look all the way around (to 180 degrees)
+    angle_increment: 0.0087 # one distance reading every 0.5 degrees
+    scan_time: 0.1 # one ring every 0.1 s (Mid-360 publishes at 10 Hz)
+    range_min: 0.15 # ignore anything closer than 15 cm
+    range_max: 15.0 # ignore anything further than 15 m
+    use_inf: true # "nothing seen" = infinite distance
+    queue_size: 5
