@@ -1,0 +1,14 @@
+# Flattens the Mid-360 3D cloud into a 2D /scan for slam_toolbox (research notes #1)
+pointcloud_to_laserscan:
+  ros__parameters:
+    target_frame: base_footprint
+    transform_tolerance: 0.05
+    min_height: 0.10 # ignore anything lower than 10 cm 
+    max_height: 1.0 # ignore anything higher than 1 m
+    angle_min: -3.14159 # look all the way around (from -180 degrees)
+    angle_max: 3.14159 # look all the way around (to 180 degrees)
+    angle_increment: 0.0087 # one distance reading every0.5 degrees
+    scan_time: 0.1 # one ring every 0.1 s
+    range_min: 0.15 # ignore anything closer than 15 cm
+    range_max: 15.0 # ignore anything further than 15 m
+    use_inf: true # "nothing seen" = infinite distance
