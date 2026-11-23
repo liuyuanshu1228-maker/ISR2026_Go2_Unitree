@@ -6,6 +6,7 @@ if psutil is not installed.
 """
 
 import csv
+import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
@@ -67,7 +68,7 @@ class SummaryTests(unittest.TestCase):
             self.assertEqual(cpu_avg_from_csv(path), 20.0)
 
 
-@unittest.skipUnless(__import__("importlib").util.find_spec("psutil"), "psutil not installed")
+@unittest.skipUnless(importlib.util.find_spec("psutil"), "psutil not installed")
 class LiveTests(unittest.TestCase):
     def test_short_run_writes_csv(self):
         with tempfile.TemporaryDirectory() as tmp:
