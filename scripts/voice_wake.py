@@ -160,7 +160,16 @@ def make_recognizer(model_path, names=None, grammar=False):
         sys.exit(f"Vosk model not found: {model_path}\n"
                  "Download vosk-model-small-en-us-0.15 from https://alphacephei.com/vosk/models "
                  "and unzip it into models/ (or pass --model).")
-    rec = KaldiRecognizer(Model(str(model_path)), SAMPLE_RATE)
+    model = Model(str(model_path))
+    if grammar and names:
+        # wake-only: the recogniser may only answer with a wake name (or [unk]),
+        # much more accurate than free speech recognition
+        phrases = []
+        for n in names:
+            phrases += [n, "hey " + n]
+        rec = KaldiRecognizer(model, SAMPLE_RATE, json.dumps(phrases + ["[unk]"]))
+    else:
+        rec = KaldiRecognizer(model, SAMPLE_RATE)
     rec.SetWords(True)
     return rec
 
@@ -183,7 +192,18 @@ def audio_from_wav(path, block=4000):
             yield data
 
 
-def audio_from_mic(device=None, block=4000):
+def apply_gain(chunk, gain):
+    """Multiply int16 audio by `gain` (clipped). gain 1.0 = unchanged."""
+    if gain == 1.0:
+        return chunk
+    from array import array
+    a = array("h", chunk)
+    for i, v in enumerate(a):
+        a[i] = max(-32768, min(32767, int(v * gain)))
+    return a.tobytes()
+
+
+def audio_from_mic(device=None, block=4000, gain=1.0):
     """Yield raw int16 chunks (0.25 s each) from the microphone, forever."""
     import sounddevice as sd
     q = queue.Queue()
@@ -191,12 +211,24 @@ def audio_from_mic(device=None, block=4000):
     def callback(indata, frames, time_info, status):
         if status:
             print(f"[audio] {status}", file=sys.stderr)
-        q.put(bytes(indata))
+        q.put(apply_gain(bytes(indata), gain))
 
     with sd.RawInputStream(samplerate=SAMPLE_RATE, blocksize=block, device=device,
                            dtype="int16", channels=1, callback=callback):
         while True:
             yield q.get()
+
+
+def show_level(device, gain):
+    """Print the microphone loudness so we can tell if it is too quiet."""
+    from array import array
+    print("Level meter. Speak normally; Ctrl+C to stop. Good speech peaks: 3000-20000.")
+    try:
+        for chunk in audio_from_mic(device, gain=gain):
+            peak = max(abs(x) for x in array("h", chunk))
+            print(f"peak {peak:6d} {'#' * min(60, peak // 500)}")
+    except KeyboardInterrupt:
+        pass
 
 
 def sentences(chunks, recognizer, min_confidence=0.0):
@@ -234,9 +266,9 @@ def run_dry(args, cfg, matcher):
         for line in args.text:
             handle(line, matcher, on_transcript, on_wake)
         return
-    rec = make_recognizer(args.model or cfg["model"])
+    rec = make_recognizer(args.model or cfg["model"], cfg["names"], args.wake_only)
     chunks = audio_from_wav(args.wav) if args.wav else audio_from_mic(
-        args.device if args.device is not None else cfg["device"])
+        args.device if args.device is not None else cfg["device"], gain=args.gain)
     print("Listening... Ctrl+C to stop" if not args.wav else f"Reading {args.wav}")
     try:
         for text in sentences(chunks, rec, cfg["min_confidence"]):
@@ -266,9 +298,9 @@ def run_ros(args, cfg, matcher):
 
     rclpy.init()
     node = VoiceWakeNode()
-    rec = make_recognizer(args.model or cfg["model"])
+    rec = make_recognizer(args.model or cfg["model"], cfg["names"], args.wake_only)
     chunks = audio_from_wav(args.wav) if args.wav else audio_from_mic(
-        args.device if args.device is not None else cfg["device"])
+        args.device if args.device is not None else cfg["device"], gain=args.gain)
     node.get_logger().info(f"listening for {cfg['names']}")
     try:
         for text in sentences(chunks, rec, cfg["min_confidence"]):
@@ -291,11 +323,18 @@ def main():
     p.add_argument("--text", action="append", help="test sentence instead of audio (repeatable)")
     p.add_argument("--dry-run", action="store_true", help="print only, do not use ROS 2")
     p.add_argument("--list-devices", action="store_true", help="list audio input devices and exit")
+    p.add_argument("--wake-only", action="store_true", help="recogniser only listens for the wake name (more accurate, no transcript)")
+    p.add_argument("--gain", type=float, default=1.0, help="multiply microphone volume (try 2.0 if the level is low)")
+    p.add_argument("--level", action="store_true", help="show microphone level meter and exit")
     args = p.parse_args()
 
     if args.list_devices:
         import sounddevice as sd
         print(sd.query_devices())
+        return
+
+    if args.level:
+        show_level(args.device if args.device is not None else load_config(args.config)["device"], args.gain)
         return
 
     cfg = load_config(args.config)
