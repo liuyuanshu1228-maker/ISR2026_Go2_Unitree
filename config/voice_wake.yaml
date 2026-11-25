@@ -1,0 +1,15 @@
+# Voice wake settings (scripts/voice_wake.py)
+#
+# names: what we call the robot. Several allowed (aliases).
+#   Pick a name that does not sound like normal speech. "go two" is heard as
+#   "go to" / "go too", and "go to the lift" is a normal sentence for us, so it
+#   would trigger by accident. A made-up name works better (for example "momo").
+names:
+  - go two
+
+threshold: 0.8        # 1.0 = exact word, lower = more forgiving, more false triggers
+cooldown: 2.0         # seconds to ignore a second trigger after one call
+min_confidence: 0.0   # raise (for example 0.6) if background noise causes false triggers
+
+model: models/vosk-model-small-en-us-0.15
+device: null          # microphone index from: python3 scripts/voice_wake.py --list-devices
